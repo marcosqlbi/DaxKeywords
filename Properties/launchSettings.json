@@ -2,7 +2,7 @@
   "profiles": {
     "DaxKeywords": {
       "commandName": "Project",
-      "commandLineArgs": "\"Data Source=localhost:65143;Catalog=de89b574-488f-45c1-bd17-e2ec39bc0d07;\""
+      "commandLineArgs": "\"Data Source=localhost:49999;Catalog=1ebeea7b-912e-4f29-ab98-04bf2b95e7cf;\""
     }
   }
 }

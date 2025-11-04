@@ -1,5 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
 using Microsoft.AnalysisServices.AdomdClient;
 
 class Program
@@ -25,8 +27,13 @@ class Program
          //2) Testing: execute DEFINE FUNCTION / EVALUATE for each keyword
          var testResults = Testing(keywords, connectionString);
 
-         //3) Output (todo)
+         //3) Output (existing)
          Output(keywords, testResults);
+
+         //4) Build and print reserved-words JSON with illegal locations
+         var reservedJson = BuildReservedWordsJson(testResults);
+         Console.WriteLine("Reserved words with illegal locations (JSON):");
+         Console.WriteLine(reservedJson);
     }
 
     static List<string> GetKeywords(string connectionString)
@@ -244,5 +251,81 @@ class Program
         PrintAll("Keywords allowed as table names (unquoted references)", tableAllowed);
         PrintAll("Keywords allowed as variable names", variableAllowed);
         PrintAll("Keywords allowed as parameter names", parameterAllowed);
+    }
+
+    // JSON model for reserved words output
+    class ReservedWordEntry
+    {
+        public string Word { get; set; } = string.Empty;
+        public List<DisallowedLocation> Disallowed_As { get; set; } = new List<DisallowedLocation>();
+    }
+
+    class DisallowedLocation
+    {
+        public string Type { get; set; } = string.Empty;
+        public List<string> Locations { get; set; } = new List<string>();
+    }
+
+    static string BuildReservedWordsJson(List<KeywordTestResult> testResults)
+    {
+        var reserved = new List<ReservedWordEntry>();
+
+        foreach (var r in testResults)
+        {
+            // Use a map to group locations by Type so there is only one object per Type
+            var typeToLocations = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+
+            void AddLocation(string type, string location)
+            {
+                if (!typeToLocations.TryGetValue(type, out var set))
+                {
+                    set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    typeToLocations[type] = set;
+                }
+                set.Add(location);
+            }
+
+            if (r.FunctionNameNotAllowed)
+            {
+                AddLocation("syntax", "function_name");
+            }
+
+            if (r.TableNameForUnquotedReferencesNotAllowed)
+            {
+                AddLocation("object", "table_name_unquoted_reference");
+            }
+
+            if (r.VariableNameNotAllowed)
+            {
+                AddLocation("syntax", "variable_name");
+            }
+
+            if (r.ParameterNameNotAllowed)
+            {
+                AddLocation("syntax", "function_parameter");
+            }
+
+            // Only include words that are disallowed somewhere
+            if (typeToLocations.Count == 0)
+                continue;
+
+            var entry = new ReservedWordEntry { Word = r.Keyword };
+
+            // Convert map entries into DisallowedLocation objects (locations sorted for stable output)
+            entry.Disallowed_As = typeToLocations
+                .Select(kvp => new DisallowedLocation
+                {
+                    Type = kvp.Key,
+                    Locations = kvp.Value.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList()
+                })
+                .OrderBy(dl => dl.Type, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            reserved.Add(entry);
+        }
+
+        var wrapper = new { reserved_words = reserved };
+        var options = new JsonSerializerOptions { WriteIndented = true };
+        return JsonSerializer.Serialize(wrapper, options);
     }
 }
