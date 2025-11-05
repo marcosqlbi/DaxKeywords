@@ -32,8 +32,8 @@ class Program
 
          //4) Build and print reserved-words JSON with illegal locations
          var reservedJson = BuildReservedWordsJson(testResults);
-         Console.WriteLine("Reserved words with illegal locations (JSON):");
-         Console.WriteLine(reservedJson);
+         //Console.WriteLine("Reserved words with illegal locations (JSON):");
+         //Console.WriteLine(reservedJson);
     }
 
     static List<string> GetKeywords(string connectionString)
@@ -136,8 +136,8 @@ class Program
     {
         try
         {
-            // Build DAX by concatenation to avoid brace escaping
-            var dax = "DEFINE FUNCTION Test." + keyword + " = () => {42}\nEVALUATE Test." + keyword + "()";
+            // Build DAX using interpolated string; escape literal braces by doubling them
+            var dax = $"DEFINE FUNCTION Test.{keyword} = () => {{42}}\nEVALUATE Test.{keyword}()";
             using var cmd = conn.CreateCommand();
             cmd.CommandText = dax;
             using var reader = cmd.ExecuteReader();
@@ -159,7 +159,8 @@ class Program
         try
         {
             // DEFINE VAR {variableName} = {42} EVALUATE {variableName}
-            var dax = "DEFINE VAR " + keyword + " = {42} EVALUATE {" + keyword + "}";
+            // Use interpolation and double braces for literal braces
+            var dax = $"DEFINE VAR {keyword} = {{42}} EVALUATE {{{keyword}}}";
             using var cmd = conn.CreateCommand();
             cmd.CommandText = dax;
             using var reader = cmd.ExecuteReader();
@@ -180,7 +181,7 @@ class Program
         try
         {
             // DEFINE TABLE {tableName} = {42} EVALUATE {tableName}
-            var dax = "DEFINE TABLE " + keyword + " = {42}\nEVALUATE {" + keyword + "}";
+            var dax = $"DEFINE TABLE {keyword} = {{42}}\nEVALUATE {{{keyword}}}";
             using var cmd = conn.CreateCommand();
             cmd.CommandText = dax;
             using var reader = cmd.ExecuteReader();
@@ -200,9 +201,8 @@ class Program
     {
         try
         {
-            // DEFINE FUNCTION x = ( parameterName ) => parameterName
-            // EVALUATE { x(42) }
-            var dax = "DEFINE FUNCTION x = (" + keyword + ") => " + keyword + "\nEVALUATE { x(42) }";
+            // Modernized: use interpolated string with doubled braces for literal DAX braces
+            var dax = $"DEFINE FUNCTION x = ({keyword}) => {keyword}\nEVALUATE {{ x(42) }}";
             using var cmd = conn.CreateCommand();
             cmd.CommandText = dax;
             using var reader = cmd.ExecuteReader();
